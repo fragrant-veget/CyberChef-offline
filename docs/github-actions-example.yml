@@ -1,0 +1,80 @@
+# 可选：GitHub Actions 自动出包（示例，未实测）
+#
+# 用法：复制到 .github/workflows/release.yml，然后在仓库 Actions 页面手动 Run workflow，
+#      或推送一个 v* tag 触发。产物会作为 Release 资产上传。
+#
+# 说明：CI 上用的编译器同样是 Windows 自带的 .NET Framework csc.exe（windows-latest 自带），
+#      所以不需要安装 .NET SDK / NuGet。
+
+name: build-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      cyberchef_version:
+        description: 'CyberChef version (e.g. 11.5.0)'
+        required: true
+        default: '11.5.0'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      CC_VERSION: ${{ github.event.inputs.cyberchef_version || '11.5.0' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build launcher
+        shell: pwsh
+        run: ./build.ps1 -Target launcher
+
+      - name: Download official CyberChef standalone build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ver = $env:CC_VERSION
+          $api = "https://api.github.com/repos/gchq/CyberChef/releases/tags/v$ver"
+          $rel = Invoke-RestMethod -Headers @{ Authorization = "Bearer $env:GH_TOKEN" } -Uri $api
+          $asset = $rel.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
+          if (-not $asset) { throw "no zip asset in v$ver release" }
+          New-Item -ItemType Directory -Force out | Out-Null
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile out\official.zip
+          Expand-Archive out\official.zip -DestinationPath out\official -Force
+          # 官方包解压后可能多一层目录，统一成 out\CyberChef 便于下一步
+          $html = Get-ChildItem out\official -Recurse -Filter 'CyberChef_*.html' -File | Select-Object -First 1
+          if (-not $html) { throw 'CyberChef_*.html not found in official build' }
+          Move-Item $html.Directory.FullName out\CyberChef
+
+      - name: Package
+        shell: pwsh
+        run: ./build.ps1 -Target package -CyberChefDir out\CyberChef -Version $env:CC_VERSION
+
+      - name: Collect hashes
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem release\*.zip | Select-Object -First 1
+          "ASSET=$($zip.FullName)" >> $env:GITHUB_ENV
+          (Get-FileHash $zip.FullName -Algorithm SHA256).Hash >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cyberchef-offline-${{ env.CC_VERSION }}
+          path: release/*.zip
+
+      - name: Publish release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF -replace '^refs/tags/',''
+          gh release create $tag release/*.zip --title "CyberChef $env:CC_VERSION offline (Windows x64)" --generate-notes

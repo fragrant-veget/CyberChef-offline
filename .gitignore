@@ -1,0 +1,12 @@
+# build outputs
+bin/
+release/
+out/
+*.zip
+
+# local / IDE
+.vs/
+*.user
+*.suo
+Thumbs.db
+desktop.ini
