@@ -1,4 +1,4 @@
-# CyberChef Offline · One-Click Offline CyberChef
+﻿# CyberChef Offline · One-Click Offline CyberChef
 
 [简体中文](README.md) | **English**
 
@@ -39,21 +39,21 @@ CyberChef_v11.5.0_offline_win64\
 CyberChef_launcher.exe
   ├─ scans its own directory for CyberChef_*.html (picks the highest version)
   ├─ starts a read-only static HTTP server on 127.0.0.1 (8000 → 5500 → 8080 → 8888 → 3000, random if all are taken)
-  └─ opens http://127.0.0.1:<port>/CyberChef_vX.Y.Z.html in Edge/Chrome --app mode
+  └─ opens http://127.0.0.1:<port>/CyberChef_vX.Y.Z.html in your default browser
 ```
 
 Design notes:
 
+- **Opens a tab in your default browser by default** — no Chromium app window, no single-instance lock clash, works inside the Edge/Chrome you already have open
 - **Binds `127.0.0.1` only** — never exposed to the LAN, no inbound firewall rule
-- The launcher is a **single 21 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
-- **The browser gets its own profile** (`%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`), so your daily Chrome/Edge profile is never touched. This also sidesteps Chromium's "existing instance is running elevated" single-instance lock clash
-- If no app window shows up, it **falls back to a normal tab in the default browser**
+- The launcher is a **single 22 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
+- **Single instance**: a second double-click just reopens the running URL instead of starting a second server
 - The server is a raw `TcpListener` (not `HttpListener`), so it needs **no administrator rights** and no URL ACL
 - Uses `http://` on purpose instead of `file://`: CyberChef's OCR / image / large-file operations rely on Web Workers + WASM, which most Chromium builds block under `file://`
 - Options:
   - `--port=9000` pin the port
   - `--no-open` start the server only, do not open a browser
-  - `--browser=default` skip the `--app` window and open a normal tab in the default browser
+  - `--browser=app` use the Edge/Chrome `--app` window instead (runs in its own profile dir `%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`, for a more "standalone app" feel)
 
 ## Build It Yourself
 
@@ -115,14 +115,22 @@ Either right-click the **zip** → Properties → check **Unblock** → OK, and 
 
 Chromium's single-instance lock: the browser started by the launcher has a different integrity level than the one already running, so it refuses to join and exits — console appears, no browser window.
 
-Since v1.1.0 the launcher avoids this by giving the browser its own profile directory.
-With an older package: kill all `msedge.exe` / `chrome.exe`, then start the launcher again — or run `CyberChef_launcher.exe --browser=default`.
+**Since v1.2.0 the launcher no longer starts a separate browser process**: it just opens a normal tab in your default browser, so this dialog cannot happen.
+For older packages: kill all `msedge.exe` / `chrome.exe` and start the launcher again, upgrade to v1.2.0, or simply open the `http://127.0.0.1:8000/...` URL printed in the console.
 </details>
 
 <details>
 <summary>Does the launcher pollute my daily browser profile?</summary>
 
-No. It uses `%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge` (or `-chrome`). Delete that folder to reset it; bookmarks, extensions and logins are untouched.
+By default, no — it opens a tab in your existing browser and creates no profile at all.
+Only with `--browser=app` does it use a separate profile dir `%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge` (or `-chrome`). Delete that folder to reset it; bookmarks, extensions and logins are untouched.
+</details>
+
+<details>
+<summary>The console window appears but no browser ever does</summary>
+
+Copy the `URL : http://127.0.0.1:xxxx/CyberChef_v11.5.0.html` line from the console into your browser — the server itself is fine, only the "open a browser" step got blocked (no default browser set, security software, etc.).
+The launcher falls back automatically: default browser first, then Edge/Chrome app mode, then it leaves the URL for you.
 </details>
 
 <details>

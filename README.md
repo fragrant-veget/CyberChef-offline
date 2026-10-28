@@ -1,4 +1,4 @@
-# CyberChef Offline · 一键离线版 CyberChef
+﻿# CyberChef Offline · 一键离线版 CyberChef
 
 **简体中文** | [English](README_EN.md)
 
@@ -39,21 +39,21 @@ CyberChef_v11.5.0_offline_win64\
 CyberChef_launcher.exe
   ├─ 扫描自身所在目录，找到 CyberChef_*.html（自动识别最高版本）
   ├─ 在 127.0.0.1 上起一个只读静态 HTTP 服务（8000 → 5500 → 8080 → 8888 → 3000，全占用则随机端口）
-  └─ 用 Edge/Chrome 的 --app 模式打开 http://127.0.0.1:<port>/CyberChef_vX.Y.Z.html
+  └─ 用系统默认浏览器打开 http://127.0.0.1:<port>/CyberChef_vX.Y.Z.html
 ```
 
 设计要点：
 
+- **默认走系统浏览器标签页**：不弹 Chromium 应用窗口、不抢单实例锁，直接在你正在用的 Edge/Chrome 里新开一个标签页（最省心、兼容性最好）
 - **只绑 `127.0.0.1`**，不监听外网，不触达防火墙入站规则
-- 启动器是 `.NET Framework 4.x` 编译的**单文件 21 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
-- **给浏览器用独立的配置目录**（`%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`），不碰你日常的 Chrome / Edge 配置。这样也绕开了 Chromium 的「现有一个提升权限的实例」单实例锁冲突
-- 打不开应用窗口时自动回退：**默认浏览器开普通标签页**
+- 启动器是 `.NET Framework 4.x` 编译的**单文件 22 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
+- **同一时间只允许一个实例**：再次双击只会把已在运行的地址再打开一次，不会起第二个服务占端口
 - 服务实现为原始 `TcpListener`（不用 `HttpListener`，因此**不需要管理员权限**、不需要 URL ACL）
 - 故意用 `http://` 而不是 `file://`：CyberChef 的 OCR / 图片处理 / 大文件操作依赖 Web Worker + WASM，`file://` 下多数 Chromium 会拦截
 - 参数：
   - `--port=9000` 固定端口
   - `--no-open` 只起服务、不自动开浏览器
-  - `--browser=default` 跳过 `--app` 窗口，直接用默认浏览器开普通标签页（兼容性最好）
+  - `--browser=app` 改用 Edge/Chrome 的 `--app` 独立窗口（会使用单独的配置目录 `%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`，想要"像个独立软件"时用）
 
 ## 自己构建
 
@@ -117,22 +117,30 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Target package -CyberChefD
 </details>
 
 <details>
-<summary>弹出「Microsoft Edge 未响应，因为现有实例正在以提升的权限运行」，点“是”也没反应</summary>
+<summary>弹出「Microsoft Edge 未响应，因为现有实例正在以提升的权限运行」，点"是"也没反应</summary>
 
 这是 Chromium 的**单实例锁冲突**：启动器拉起的 Edge/Chrome 和你已经开着的浏览器权限级别不一致，浏览器拒绝加入现有实例，于是直接退出 —— 表现就是控制台黑窗口有了、浏览器没出来。
 
-v1.1.0 起启动器已经规避这个问题（给浏览器单独开一个配置目录，不再去抢你正在用的那个实例）。
-如果用的还是旧包，可以这样救急：
+**v1.2.0 起默认不再拉独立的浏览器进程**：直接用系统默认浏览器开一个普通标签页，不存在单实例锁的问题，也不会弹出这个对话框。
+如果你用的是旧包，可以这样救急：
 
 1. 任务管理器里把所有 `msedge.exe` / `chrome.exe` 结束掉，再双击启动器；或
-2. 换一个浏览器：`CyberChef_launcher.exe --browser=default` 用系统默认浏览器打开
+2. 升级到 v1.2.0；或
+3. 手动打开控制台里打印的 `http://127.0.0.1:8000/...` 地址（服务本身是好的）
 </details>
 
 <details>
 <summary>启动器会不会污染我日常的浏览器配置</summary>
 
-不会。启动器用的是单独的配置目录：`%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge`（或 `-chrome`）。
-删掉这个目录就相当于重置；你的收藏夹、扩展、登录状态都不受影响。
+默认模式不会——它只是在你日常浏览器里新开一个标签页，不建任何新配置。
+只有加 `--browser=app` 时才会用单独的配置目录 `%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge`（或 `-chrome`）；删掉这个目录就相当于重置，你的收藏夹、扩展、登录状态都不受影响。
+</details>
+
+<details>
+<summary>双击后控制台有了，但浏览器一直没动静</summary>
+
+先看控制台里那行 `URL : http://127.0.0.1:xxxx/CyberChef_v11.5.0.html`，把它手动粘到浏览器地址栏——服务是好的，只是“自动开浏览器”这一步被系统拦了（常见于没有默认浏览器、或被安全软件拦截）。
+启动器会自动回退：先试系统默认浏览器，失败再试 Edge/Chrome 的 app 窗口，最后把地址直接交给你手动打开。
 </details>
 
 <details>

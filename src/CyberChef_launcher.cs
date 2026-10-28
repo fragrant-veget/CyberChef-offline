@@ -27,14 +27,21 @@ using System.Threading;
 internal static class Program
 {
     private const string Title = "CyberChef Offline Launcher";
-    private const string LauncherVersion = "1.1.0";
+    private const string LauncherVersion = "1.2.0";
 
     // Same preference order as the classic Thyme-13/CyberChef_launcher project.
     private static readonly int[] PreferredPorts = new int[] { 8000, 5500, 8080, 8888, 3000 };
 
     private static string _root;
     private static string _entry;   // file name of the CyberChef html, e.g. CyberChef_v11.5.0.html
-    private static string _browserMode = "app";  // "app" (Edge/Chrome --app window) or "default"
+
+    // "default" = a normal tab in the system default browser (most reliable everywhere).
+    // "app"     = a chrome-less Edge/Chrome --app window (opt-in via --browser=app).
+    private static string _browserMode = "default";
+
+    // Single-instance guard: a second double-click just re-opens the running page
+    // instead of starting a second server and a second browser profile.
+    private static Mutex _instanceMutex;
 
     private static void Main(string[] args)
     {
@@ -58,11 +65,11 @@ internal static class Program
             else if (string.Equals(a, "--help", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(a, "-h", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Usage: CyberChef_launcher.exe [--port=N] [--no-open] [--browser=app|default]");
-                Console.WriteLine("  --port=N          bind 127.0.0.1:N (default: first free of 8000,5500,8080,8888,3000)");
-                Console.WriteLine("  --no-open         start the server only, do not open a browser");
-                Console.WriteLine("  --browser=app     open an app-mode window in Edge/Chrome (default)");
-                Console.WriteLine("  --browser=default open a normal tab in the default browser");
+                Console.WriteLine("Usage: CyberChef_launcher.exe [--port=N] [--no-open] [--browser=default|app]");
+                Console.WriteLine("  --port=N           bind 127.0.0.1:N (default: first free of 8000,5500,8080,8888,3000)");
+                Console.WriteLine("  --no-open          start the server only, do not open a browser");
+                Console.WriteLine("  --browser=default  open a normal tab in the default browser (default)");
+                Console.WriteLine("  --browser=app      open a chrome-less Edge/Chrome window instead");
                 return;
             }
         }
@@ -79,6 +86,23 @@ internal static class Program
                      "Folder: " + _root + "\n\n" +
                      "The launcher must stay in the same folder as CyberChef_vX.Y.Z.html,\n" +
                      "assets/, modules/ and images/.");
+                return;
+            }
+
+            string previousUrl = AcquireSingleInstance();
+            if (previousUrl != null)
+            {
+                if (previousUrl.Length > 0)
+                {
+                    Console.WriteLine("  CyberChef Offline Launcher is already running.");
+                    Console.WriteLine("  URL   : " + previousUrl);
+                    if (!noOpen) OpenDefaultBrowser(previousUrl);
+                }
+                else
+                {
+                    Console.WriteLine("  CyberChef Offline Launcher is already running,");
+                    Console.WriteLine("  but its URL is unknown. Close the other window and try again.");
+                }
                 return;
             }
 
@@ -388,6 +412,15 @@ internal static class Program
         try { Directory.CreateDirectory(profile); }
         catch (Exception ex) { Console.WriteLine("  (private profile dir: " + ex.Message + ")"); }
 
+        // A force-killed browser can leave a stale singleton lockfile behind, which makes
+        // the next Chromium start abort with "Lock file can not be created".
+        try
+        {
+            string lockFile = Path.Combine(profile, "lockfile");
+            if (File.Exists(lockFile)) File.Delete(lockFile);
+        }
+        catch { }
+
         Console.WriteLine("  Browser: " + browser);
         Console.WriteLine("  Profile: " + profile);
 
@@ -453,6 +486,9 @@ internal static class Program
     [DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW")]
+    private static extern int GetClassName(IntPtr hWnd, StringBuilder text, int count);
+
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     private static bool FindCyberChefWindow()
@@ -463,6 +499,16 @@ internal static class Program
             EnumWindows(delegate(IntPtr hWnd, IntPtr lParam)
             {
                 if (!IsWindowVisible(hWnd)) return true;
+
+                // Only Chromium content windows count. This deliberately ignores our own
+                // console window ("CyberChef Offline Launcher"), which also contains the
+                // word "CyberChef" and used to make the launcher report success even when
+                // the browser had already aborted.
+                StringBuilder cls = new StringBuilder(120);
+                GetClassName(hWnd, cls, cls.Capacity);
+                if (!string.Equals(cls.ToString(), "Chrome_WidgetWin_1", StringComparison.Ordinal))
+                    return true;
+
                 StringBuilder sb = new StringBuilder(300);
                 GetWindowText(hWnd, sb, sb.Capacity);
                 if (sb.ToString().IndexOf("CyberChef", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -475,6 +521,48 @@ internal static class Program
         }
         catch { }
         return found;
+    }
+
+    // Returns null when this process became the single instance (and now owns the mutex),
+    // otherwise the URL of the already-running instance (or "" when that URL is unknown).
+    private static string AcquireSingleInstance()
+    {
+        try
+        {
+            bool createdNew;
+            _instanceMutex = new Mutex(true, @"Local\CyberChefOfflineLauncher", out createdNew);
+            if (createdNew) return null;
+
+            string url = ProbeRunningServer();
+            return url == null ? "" : url;
+        }
+        catch
+        {
+            return null;   // if the mutex cannot be created, keep working anyway
+        }
+    }
+
+    // Looks for an already-running launcher by probing the ports we normally bind.
+    // Safer than a state file (which can be unwritable or stale).
+    private static string ProbeRunningServer()
+    {
+        for (int i = 0; i < PreferredPorts.Length; i++)
+        {
+            try
+            {
+                using (TcpClient client = new TcpClient())
+                {
+                    IAsyncResult ar = client.BeginConnect(IPAddress.Loopback, PreferredPorts[i], null, null);
+                    bool ok = ar.AsyncWaitHandle.WaitOne(300);
+                    if (!ok) continue;
+                    client.EndConnect(ar);
+                    return "http://127.0.0.1:" + PreferredPorts[i] + "/" + Uri.EscapeDataString(_entry);
+                }
+            }
+            catch { }
+        }
+
+        return null;
     }
 
     private static string GetPrivateProfileDir(string browser)
