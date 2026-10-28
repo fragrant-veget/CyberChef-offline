@@ -20,18 +20,21 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
 internal static class Program
 {
     private const string Title = "CyberChef Offline Launcher";
+    private const string LauncherVersion = "1.1.0";
 
     // Same preference order as the classic Thyme-13/CyberChef_launcher project.
     private static readonly int[] PreferredPorts = new int[] { 8000, 5500, 8080, 8888, 3000 };
 
     private static string _root;
     private static string _entry;   // file name of the CyberChef html, e.g. CyberChef_v11.5.0.html
+    private static string _browserMode = "app";  // "app" (Edge/Chrome --app window) or "default"
 
     private static void Main(string[] args)
     {
@@ -47,12 +50,19 @@ internal static class Program
                 int p;
                 if (int.TryParse(a.Substring(7), out p) && p > 0 && p < 65536) forcedPort = p;
             }
+            else if (a.StartsWith("--browser=", StringComparison.OrdinalIgnoreCase))
+            {
+                _browserMode = string.Equals(a.Substring(10), "default", StringComparison.OrdinalIgnoreCase)
+                    ? "default" : "app";
+            }
             else if (string.Equals(a, "--help", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(a, "-h", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine("Usage: CyberChef_launcher.exe [--port=N] [--no-open]");
-                Console.WriteLine("  --port=N    bind 127.0.0.1:N (default: first free of 8000,5500,8080,8888,3000)");
-                Console.WriteLine("  --no-open   start the server only, do not open a browser");
+                Console.WriteLine("Usage: CyberChef_launcher.exe [--port=N] [--no-open] [--browser=app|default]");
+                Console.WriteLine("  --port=N          bind 127.0.0.1:N (default: first free of 8000,5500,8080,8888,3000)");
+                Console.WriteLine("  --no-open         start the server only, do not open a browser");
+                Console.WriteLine("  --browser=app     open an app-mode window in Edge/Chrome (default)");
+                Console.WriteLine("  --browser=default open a normal tab in the default browser");
                 return;
             }
         }
@@ -76,7 +86,7 @@ internal static class Program
             string url = "http://127.0.0.1:" + port + "/" + Uri.EscapeDataString(_entry);
 
             Console.WriteLine("============================================================");
-            Console.WriteLine("  " + Title);
+            Console.WriteLine("  " + Title + "  v" + LauncherVersion);
             Console.WriteLine("============================================================");
             Console.WriteLine("  URL   : " + url);
             Console.WriteLine("  Files : " + _root);
@@ -356,23 +366,125 @@ internal static class Program
 
     private static void OpenBrowser(string url)
     {
-        string edge = FindBrowser();
-        if (edge != null)
+        if (_browserMode == "default")
         {
-            try
-            {
-                ProcessStartInfo psi = new ProcessStartInfo();
-                psi.FileName = edge;
-                psi.Arguments = "--app=" + url + " --window-size=1500,950";
-                psi.UseShellExecute = false;
-                Process.Start(psi);
-                return;
-            }
-            catch { /* fall through to default browser */ }
+            OpenDefaultBrowser(url);
+            return;
         }
 
-        try { Process.Start(url); }
-        catch { Console.WriteLine("Could not start a browser. Open manually: " + url); }
+        string browser = FindBrowser();
+        if (browser == null)
+        {
+            Console.WriteLine("  No Edge/Chrome found - falling back to the default browser.");
+            OpenDefaultBrowser(url);
+            return;
+        }
+
+        // A private --user-data-dir keeps this launcher out of the user's regular
+        // browser profile. That also avoids the Chromium "process singleton" clash
+        // when the user's normal browser is already running with a different
+        // integrity level (classic "现有实例正在以提升的权限运行" dialog).
+        string profile = GetPrivateProfileDir(browser);
+        try { Directory.CreateDirectory(profile); }
+        catch (Exception ex) { Console.WriteLine("  (private profile dir: " + ex.Message + ")"); }
+
+        Console.WriteLine("  Browser: " + browser);
+        Console.WriteLine("  Profile: " + profile);
+
+        Process p = null;
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.FileName = browser;
+            psi.Arguments =
+                "--app=\"" + url + "\" " +
+                "--user-data-dir=\"" + profile + "\" " +
+                "--no-first-run --no-default-browser-check --window-size=1500,950";
+            psi.UseShellExecute = false;
+            p = Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("  Could not start " + Path.GetFileName(browser) + ": " + ex.Message);
+        }
+
+        if (p != null && WaitForCyberChefWindow(9000))
+        {
+            Console.WriteLine("  App window opened.");
+            return;
+        }
+
+        Console.WriteLine("  App-mode window did not appear - opening a normal browser tab instead.");
+        OpenDefaultBrowser(url);
+    }
+
+    private static void OpenDefaultBrowser(string url)
+    {
+        try
+        {
+            Process.Start(url);
+            Console.WriteLine("  Opened the URL in the default browser.");
+        }
+        catch
+        {
+            Console.WriteLine("  Could not start a browser. Open this URL manually:");
+            Console.WriteLine("    " + url);
+        }
+    }
+
+    private static bool WaitForCyberChefWindow(int timeoutMs)
+    {
+        int waited = 0;
+        while (waited < timeoutMs)
+        {
+            if (FindCyberChefWindow()) return true;
+            Thread.Sleep(250);
+            waited += 250;
+        }
+        return FindCyberChefWindow();
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    private static bool FindCyberChefWindow()
+    {
+        bool found = false;
+        try
+        {
+            EnumWindows(delegate(IntPtr hWnd, IntPtr lParam)
+            {
+                if (!IsWindowVisible(hWnd)) return true;
+                StringBuilder sb = new StringBuilder(300);
+                GetWindowText(hWnd, sb, sb.Capacity);
+                if (sb.ToString().IndexOf("CyberChef", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    found = true;
+                    return false;   // stop enumerating
+                }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+        return found;
+    }
+
+    private static string GetPrivateProfileDir(string browser)
+    {
+        string la = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        la = string.IsNullOrEmpty(la)
+            ? Path.Combine(Path.GetTempPath(), "CyberChefOffline")
+            : Path.Combine(la, "CyberChefOffline");
+
+        return Path.Combine(la, "browser-profile-" + Path.GetFileNameWithoutExtension(browser).ToLowerInvariant());
     }
 
     private static string FindBrowser()

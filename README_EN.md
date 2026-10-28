@@ -45,12 +45,15 @@ CyberChef_launcher.exe
 Design notes:
 
 - **Binds `127.0.0.1` only** — never exposed to the LAN, no inbound firewall rule
-- The launcher is a **single 18 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
+- The launcher is a **single 21 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
+- **The browser gets its own profile** (`%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`), so your daily Chrome/Edge profile is never touched. This also sidesteps Chromium's "existing instance is running elevated" single-instance lock clash
+- If no app window shows up, it **falls back to a normal tab in the default browser**
 - The server is a raw `TcpListener` (not `HttpListener`), so it needs **no administrator rights** and no URL ACL
 - Uses `http://` on purpose instead of `file://`: CyberChef's OCR / image / large-file operations rely on Web Workers + WASM, which most Chromium builds block under `file://`
 - Options:
   - `--port=9000` pin the port
   - `--no-open` start the server only, do not open a browser
+  - `--browser=default` skip the `--app` window and open a normal tab in the default browser
 
 ## Build It Yourself
 
@@ -97,6 +100,29 @@ Wait until the console prints the URL, then reload — or open `http://127.0.0.1
 
 It opens, but using the launcher is still recommended: some Web Worker / WASM operations are blocked by Chromium's security policy under `file://`.
 If Edge is missing, the launcher falls back to the system default browser.
+</details>
+
+<details>
+<summary>Windows shows "Open File - Security Warning / unknown publisher", or double-click seems to do nothing</summary>
+
+That is the Mark-of-the-Web (MOTW) tag Windows puts on files extracted from a downloaded zip.
+Either right-click the **zip** → Properties → check **Unblock** → OK, and then extract; or, after extracting, run
+`Get-ChildItem -Recurse | Unblock-File` in the folder. Unsigned executables always trigger this — the bundle itself is fine.
+</details>
+
+<details>
+<summary>"Microsoft Edge is not responding because the existing instance is running with elevated privileges"</summary>
+
+Chromium's single-instance lock: the browser started by the launcher has a different integrity level than the one already running, so it refuses to join and exits — console appears, no browser window.
+
+Since v1.1.0 the launcher avoids this by giving the browser its own profile directory.
+With an older package: kill all `msedge.exe` / `chrome.exe`, then start the launcher again — or run `CyberChef_launcher.exe --browser=default`.
+</details>
+
+<details>
+<summary>Does the launcher pollute my daily browser profile?</summary>
+
+No. It uses `%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge` (or `-chrome`). Delete that folder to reset it; bookmarks, extensions and logins are untouched.
 </details>
 
 <details>

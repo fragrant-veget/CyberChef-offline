@@ -45,12 +45,15 @@ CyberChef_launcher.exe
 设计要点：
 
 - **只绑 `127.0.0.1`**，不监听外网，不触达防火墙入站规则
-- 启动器是 `.NET Framework 4.x` 编译的**单文件 18 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
+- 启动器是 `.NET Framework 4.x` 编译的**单文件 21 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
+- **给浏览器用独立的配置目录**（`%LOCALAPPDATA%\CyberChefOffline\browser-profile-*`），不碰你日常的 Chrome / Edge 配置。这样也绕开了 Chromium 的「现有一个提升权限的实例」单实例锁冲突
+- 打不开应用窗口时自动回退：**默认浏览器开普通标签页**
 - 服务实现为原始 `TcpListener`（不用 `HttpListener`，因此**不需要管理员权限**、不需要 URL ACL）
 - 故意用 `http://` 而不是 `file://`：CyberChef 的 OCR / 图片处理 / 大文件操作依赖 Web Worker + WASM，`file://` 下多数 Chromium 会拦截
 - 参数：
   - `--port=9000` 固定端口
   - `--no-open` 只起服务、不自动开浏览器
+  - `--browser=default` 跳过 `--app` 窗口，直接用默认浏览器开普通标签页（兼容性最好）
 
 ## 自己构建
 
@@ -97,6 +100,39 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Target package -CyberChefD
 
 能打开，但推荐做法仍是走启动器：`file://` 下部分 Web Worker/WASM 操作会被 Chromium 安全策略拦。
 启动器找不到 Edge 时会回退到系统默认浏览器。
+</details>
+
+<details>
+<summary>双击后弹出「打开文件 - 安全警告 / 无法验证发布者」，或者双击好像没反应</summary>
+
+这是 Windows 给**从网上下载的 zip** 打的「来自 Internet」标记（MOTW），解压出来的 exe / html 也带着它。
+两种解决办法：
+
+- **推荐**：右键 zip → 属性 → 勾选「解除锁定」→ 确定，**然后再解压**（解压出来的文件就干净了）
+- 已经解压了：在解压出的文件夹里打开 PowerShell，执行
+  `Get-ChildItem -Recurse | Unblock-File`
+  或者对 exe 右键 → 属性 → 解除锁定
+
+没有代码签名的程序都会这样，不是包有问题。
+</details>
+
+<details>
+<summary>弹出「Microsoft Edge 未响应，因为现有实例正在以提升的权限运行」，点“是”也没反应</summary>
+
+这是 Chromium 的**单实例锁冲突**：启动器拉起的 Edge/Chrome 和你已经开着的浏览器权限级别不一致，浏览器拒绝加入现有实例，于是直接退出 —— 表现就是控制台黑窗口有了、浏览器没出来。
+
+v1.1.0 起启动器已经规避这个问题（给浏览器单独开一个配置目录，不再去抢你正在用的那个实例）。
+如果用的还是旧包，可以这样救急：
+
+1. 任务管理器里把所有 `msedge.exe` / `chrome.exe` 结束掉，再双击启动器；或
+2. 换一个浏览器：`CyberChef_launcher.exe --browser=default` 用系统默认浏览器打开
+</details>
+
+<details>
+<summary>启动器会不会污染我日常的浏览器配置</summary>
+
+不会。启动器用的是单独的配置目录：`%LOCALAPPDATA%\CyberChefOffline\browser-profile-msedge`（或 `-chrome`）。
+删掉这个目录就相当于重置；你的收藏夹、扩展、登录状态都不受影响。
 </details>
 
 <details>

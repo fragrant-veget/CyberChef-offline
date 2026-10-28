@@ -41,24 +41,28 @@ git push -u origin main
 Release 描述模板：
 
 ```markdown
-CyberChef **v11.5.0** 官方独立构建（精简版）+ 18 KB 一键启动器，Windows x64 离线可用。
+CyberChef **v11.5.0** 官方独立构建（精简版）+ 21 KB 一键启动器（v1.1.0），Windows x64 离线可用。
 
 ## 下载
 | 文件 | 大小 | SHA-256 |
 |---|---|---|
-| `CyberChef_v11.5.0_offline_win64.zip` | 24.26 MB | `D5EED23BCB3E3319D2EAAA5AFB91E60523563F38D84FCB5E3C0C9268D45B54EE` |
+| `CyberChef_v11.5.0_offline_win64.zip` | 24.26 MB | `648FA106F3F9BF87AE4F723C9385D7AD5F9F2C911E1AE4BD73E8FAABF28C5BFD` |
 
 ## 用法
 解压 → 双击 `CyberChef_launcher.exe` → 浏览器自动打开。不联网、无需安装任何运行时。
+
+> 提示：从网上下载的 zip 会带 Windows「来自 Internet」标记，双击可能先弹「无法验证发布者」。
+> 建议解压前：右键 zip → 属性 → 勾选「解除锁定」→ 再解压。
 
 ## 相对官方包的改动
 - 移除 58 个 `*.gz` / `*.br` 预压缩副本（-21 MB，本地服务用不到）
 - 保留 tesseract 英文语言包 `eng.traineddata.gz`
 - 移除重复的 `CyberChef_v11.4.0.html`
 - 启动器重写（Windows 自带 .NET Framework 4.x 编译，无需管理员权限）
+- 启动器 v1.1.0：给浏览器使用独立配置目录（不再与日常 Chrome/Edge 实例冲突，也不会污染个人配置）；`--app` 窗口打不开时自动回退到默认浏览器；新增 `--browser=default`
 
 ## 校验
-- `CyberChef_launcher.exe`: `899574619ED731DC95769B7130E8578324D1035787EFD4C9BFBA6E27AED0483F`
+- `CyberChef_launcher.exe` (v1.1.0): `C5A88AD5174A329F56239675853D55466E6110ED4BCF405653848B0838A1CAD3`
 - `CyberChef_v11.5.0.html`: `80917493...3903E9`
 - 官方原版 zip: `F6478925...24CCCF`
 ```
