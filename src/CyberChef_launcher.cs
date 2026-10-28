@@ -1,4 +1,4 @@
-// CyberChef offline launcher (folder mode).
+﻿// CyberChef offline launcher (folder mode).
 // Serves the folder that contains this .exe over a loopback HTTP server and opens
 // the CyberChef standalone HTML build in an app-mode (or default) browser window.
 //
@@ -27,7 +27,7 @@ using System.Threading;
 internal static class Program
 {
     private const string Title = "CyberChef Offline Launcher";
-    private const string LauncherVersion = "1.2.0";
+    private const string LauncherVersion = "1.2.1";
 
     // Same preference order as the classic Thyme-13/CyberChef_launcher project.
     private static readonly int[] PreferredPorts = new int[] { 8000, 5500, 8080, 8888, 3000 };
@@ -120,6 +120,11 @@ internal static class Program
             Console.WriteLine("  (Ctrl+C also stops it.)");
             Console.WriteLine("============================================================");
             Console.WriteLine();
+
+            Log("start: version=" + LauncherVersion + " url=" + url + " root=" + _root
+                + " entry=" + _entry + " mode=" + _browserMode
+                + " interactive=" + Environment.UserInteractive
+                + " session=" + Process.GetCurrentProcess().SessionId);
 
             if (!noOpen) OpenBrowser(url);
             else Console.WriteLine("  --no-open: open the URL above manually.");
@@ -453,15 +458,66 @@ internal static class Program
 
     private static void OpenDefaultBrowser(string url)
     {
+        // ShellExecute("open", url) is the canonical route, but on locked-down machines
+        // the default-browser association can be broken or point at a store stub that
+        // silently does nothing. Try the association first, then the shell helpers,
+        // then explicit Edge/Chrome with a plain URL, and log every attempt so a user
+        // report ("nothing happened") can be diagnosed from launcher.log.
+        if (TryLaunch(delegate { Process.Start(url); }, "Process.Start(url)")) return;
+        if (TryLaunch(delegate { Process.Start("cmd.exe", "/c start \"\" \"" + url + "\""); }, "cmd /c start")) return;
+        if (TryLaunch(delegate { Process.Start("explorer.exe", url); }, "explorer.exe url")) return;
+
+        string browser = FindBrowser();
+        if (browser != null && TryLaunch(delegate
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(browser);
+            psi.UseShellExecute = false;
+            psi.Arguments = "\"" + url + "\"";
+            Process.Start(psi);
+        }, browser)) return;
+
+        Log("FAILED: all browser launch attempts failed");
+        Console.WriteLine("  Could not start a browser. Open this URL manually:");
+        Console.WriteLine("    " + url);
+    }
+
+    private static bool TryLaunch(Action action, string label)
+    {
         try
         {
-            Process.Start(url);
+            action();
+            Log("launched via " + label + " (OK)");
             Console.WriteLine("  Opened the URL in the default browser.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log("launched via " + label + " -> FAILED: " + ex.Message);
+            return false;
+        }
+    }
+
+    private static void Log(string message)
+    {
+        try
+        {
+            string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + message;
+            File.AppendAllText(LogPath(), line + Environment.NewLine, Encoding.UTF8);
+        }
+        catch { }
+    }
+
+    private static string LogPath()
+    {
+        try
+        {
+            string beside = Path.Combine(_root, "launcher.log");
+            using (FileStream fs = new FileStream(beside, FileMode.Append, FileAccess.Write, FileShare.ReadWrite)) { }
+            return beside;
         }
         catch
         {
-            Console.WriteLine("  Could not start a browser. Open this URL manually:");
-            Console.WriteLine("    " + url);
+            return Path.Combine(Path.GetTempPath(), "CyberChef_launcher.log");
         }
     }
 

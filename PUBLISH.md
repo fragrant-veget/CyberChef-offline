@@ -41,12 +41,12 @@ git push -u origin main
 Release 描述模板：
 
 ```markdown
-CyberChef **v11.5.0** 官方独立构建（精简版）+ 22 KB 一键启动器（v1.2.0），Windows x64 离线可用。
+CyberChef **v11.5.0** 官方独立构建（精简版）+ 24 KB 一键启动器（v1.2.1），Windows x64 离线可用。
 
 ## 下载
 | 文件 | 大小 | SHA-256 |
 |---|---|---|
-| `CyberChef_v11.5.0_offline_win64.zip` | 24.26 MB | `F489554F1EFB16FA3A2B71F354F47CC3B4B319772939BFC1E1900EE0A1B031E5` |
+| `CyberChef_v11.5.0_offline_win64.zip` | 24.27 MB | `E9B25844BC0CF0A4B2A0CB13796B2BAD4093491A4F5B4D5E3CFCB725C1BBE75D` |
 
 ## 用法
 解压 → 双击 `CyberChef_launcher.exe` → 用你的默认浏览器打开。不联网、无需安装任何运行时。
@@ -59,10 +59,10 @@ CyberChef **v11.5.0** 官方独立构建（精简版）+ 22 KB 一键启动器�
 - 保留 tesseract 英文语言包 `eng.traineddata.gz`
 - 移除重复的 `CyberChef_v11.4.0.html`
 - 启动器重写（Windows 自带 .NET Framework 4.x 编译，无需管理员权限、无需 Python/Node）
-- 启动器 v1.2.0：默认用系统默认浏览器开标签页（不再抢浏览器单实例锁，不会再弹「以提升的权限运行」对话框）；单实例保护（重复双击只重开已启动的页面）；`--browser=app` 可选独立 app 窗口
+- 启动器 v1.2.1：默认用系统默认浏览器开标签页（不再抢浏览器单实例锁，不会再弹「以提升的权限运行」对话框）；单实例保护（重复双击只重开已启动的页面）；`--browser=app` 可选独立 app 窗口
 
 ## 校验
-- `CyberChef_launcher.exe` (v1.2.0): `817EC15CC42108A509DAE645801432364EEFFB54E5A89F665E350B2A93FF3CAE`
+- `CyberChef_launcher.exe` (v1.2.1): `FAA750E1472015F25211F030DBC5864B0BAFECD0116E88CBF03916F69DD027C3`
 - `CyberChef_v11.5.0.html`: `80917493...3903E9`
 - 官方原版 zip: `F6478925...24CCCF`
 ```

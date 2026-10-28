@@ -46,7 +46,7 @@ CyberChef_launcher.exe
 
 - **默认走系统浏览器标签页**：不弹 Chromium 应用窗口、不抢单实例锁，直接在你正在用的 Edge/Chrome 里新开一个标签页（最省心、兼容性最好）
 - **只绑 `127.0.0.1`**，不监听外网，不触达防火墙入站规则
-- 启动器是 `.NET Framework 4.x` 编译的**单文件 22 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
+- 启动器是 `.NET Framework 4.x` 编译的**单文件 24 KB 程序**（系统自带运行时，内嵌图标 `src/CyberChef_launcher.ico`），源码在本仓库 `src/`
 - **同一时间只允许一个实例**：再次双击只会把已在运行的地址再打开一次，不会起第二个服务占端口
 - 服务实现为原始 `TcpListener`（不用 `HttpListener`，因此**不需要管理员权限**、不需要 URL ACL）
 - 故意用 `http://` 而不是 `file://`：CyberChef 的 OCR / 图片处理 / 大文件操作依赖 Web Worker + WASM，`file://` 下多数 Chromium 会拦截
@@ -121,11 +121,11 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Target package -CyberChefD
 
 这是 Chromium 的**单实例锁冲突**：启动器拉起的 Edge/Chrome 和你已经开着的浏览器权限级别不一致，浏览器拒绝加入现有实例，于是直接退出 —— 表现就是控制台黑窗口有了、浏览器没出来。
 
-**v1.2.0 起默认不再拉独立的浏览器进程**：直接用系统默认浏览器开一个普通标签页，不存在单实例锁的问题，也不会弹出这个对话框。
+**v1.2.1 起默认不再拉独立的浏览器进程**：直接用系统默认浏览器开一个普通标签页，不存在单实例锁的问题，也不会弹出这个对话框。
 如果你用的是旧包，可以这样救急：
 
 1. 任务管理器里把所有 `msedge.exe` / `chrome.exe` 结束掉，再双击启动器；或
-2. 升级到 v1.2.0；或
+2. 升级到 v1.2.1；或
 3. 手动打开控制台里打印的 `http://127.0.0.1:8000/...` 地址（服务本身是好的）
 </details>
 

@@ -46,7 +46,7 @@ Design notes:
 
 - **Opens a tab in your default browser by default** — no Chromium app window, no single-instance lock clash, works inside the Edge/Chrome you already have open
 - **Binds `127.0.0.1` only** — never exposed to the LAN, no inbound firewall rule
-- The launcher is a **single 22 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
+- The launcher is a **single 24 KB executable** built against `.NET Framework 4.x` (runtime ships with Windows; icon embedded from `src/CyberChef_launcher.ico`). Source lives in `src/`
 - **Single instance**: a second double-click just reopens the running URL instead of starting a second server
 - The server is a raw `TcpListener` (not `HttpListener`), so it needs **no administrator rights** and no URL ACL
 - Uses `http://` on purpose instead of `file://`: CyberChef's OCR / image / large-file operations rely on Web Workers + WASM, which most Chromium builds block under `file://`
@@ -115,8 +115,8 @@ Either right-click the **zip** → Properties → check **Unblock** → OK, and 
 
 Chromium's single-instance lock: the browser started by the launcher has a different integrity level than the one already running, so it refuses to join and exits — console appears, no browser window.
 
-**Since v1.2.0 the launcher no longer starts a separate browser process**: it just opens a normal tab in your default browser, so this dialog cannot happen.
-For older packages: kill all `msedge.exe` / `chrome.exe` and start the launcher again, upgrade to v1.2.0, or simply open the `http://127.0.0.1:8000/...` URL printed in the console.
+**Since v1.2.1 the launcher no longer starts a separate browser process**: it just opens a normal tab in your default browser, so this dialog cannot happen.
+For older packages: kill all `msedge.exe` / `chrome.exe` and start the launcher again, upgrade to v1.2.1, or simply open the `http://127.0.0.1:8000/...` URL printed in the console.
 </details>
 
 <details>
