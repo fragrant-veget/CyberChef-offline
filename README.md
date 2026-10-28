@@ -1,11 +1,9 @@
 # CyberChef Offline · 一键离线版 CyberChef
 
+**简体中文** | [English](README_EN.md)
+
 [CyberChef](https://github.com/gchq/CyberChef) 的 **Windows 离线绿色包 + 一键启动器**。
 下载解压，双击 `CyberChef_launcher.exe`，浏览器里就能用完整的 CyberChef —— **不联网、不装环境、不需要 Python / Node / 任何运行时**。
-
-> 面向离线环境：电子数据取证比赛 / 靶场 / 内网 / 断网机器。
-> 官方 v11 起不再提供单文件 HTML（`CyberChef_v11.x.x.html` 只是个 75 KB 的壳，必须带 `assets/ modules/ images/`），
-> 直接双击 html 在 `file://` 下部分浏览器会限制 Web Worker / WASM —— 所以这里用一个 18 KB 的启动器解决「怎么在离线机器上正确打开它」。
 
 ---
 
@@ -18,7 +16,6 @@
 | `CyberChef_v11.5.0_offline_win64.zip` | ≈ 24 MB（解压后 ≈ 58 MB） | 完整离线包（CyberChef v11.5.0 + 启动器） |
 
 - **系统要求**：Windows 10 / 11 x64（`.NET Framework 4.x` 系统自带），Edge / Chrome 任一即可
-- **杀毒/SmartScreen**：启动器无代码签名，首次运行点「更多信息 → 仍要运行」；也可自行用 `build.ps1` 重新编译
 
 ## 快速开始
 
@@ -54,39 +51,6 @@ CyberChef_launcher.exe
 - 参数：
   - `--port=9000` 固定端口
   - `--no-open` 只起服务、不自动开浏览器
-
-## 离线能力说明
-
-CyberChef 本体 505 个操作全部纯前端、可离线使用。**只有 3 个操作需要联网**：
-`Show on map`、`DNS over HTTPS`、`HTTP request`。
-
-OCR 操作（Optical Character Recognition）内置的是 **英文** 语言包（`assets/tesseract/lang-data/eng.traineddata.gz`，10.4 MB）。
-中文 OCR CyberChef 官方构建不支持（语言写死 `eng`），需要中文识别请另配 [Umi-OCR](https://github.com/hiroi-sora/Umi-OCR) 之类工具。
-
-## 相比官方 zip 精简了什么
-
-| 内容 | 处理 | 原因 |
-|---|---|---|
-| `*.gz` / `*.br` 预压缩副本（58 个，21 MB） | ❌ 删除 | 那是给带 gzip/brotli 的反向代理用的；本地静态服务直接发原文件 |
-| `assets/tesseract/lang-data/eng.traineddata.gz` | ✅ 保留 | OCR 唯一语言包，不能被当成冗余删掉 |
-| 重复的 `CyberChef_v11.4.0.html` | ❌ 删除 | 与 v11.5.0 的壳是同一份文件，仅名称不同 |
-| 启动器 `CyberChef_launcher.exe` | 🔧 替换 | 见下节 |
-
-最终：**136 文件 / 110.6 MB → 77 文件 / 58.1 MB**（含新增的 README.txt 与 LICENSE），zip 24.3 MB。
-
-> 原 `CyberChef_launcher.exe`（[Thyme-13/CyberChef_launcher](https://github.com/Thyme-13/CyberChef_launcher) 的 PyInstaller 打包版）
-> 在本机实测**不可用**：它内部用 `subprocess.Popen([sys.executable, "-m", "http.server", ...])` 起静态服务，
-> 打包成 exe 后 `sys.executable` 指向它自己 → 端口在监听但不返回数据，浏览器报 `ERR_EMPTY_RESPONSE`。
-> 因此本仓库用等价思路重写了启动器（见 `src/CyberChef_launcher.cs`）。
-
-## 校验值
-
-| 文件 | SHA-256 |
-|---|---|
-| `CyberChef_v11.5.0_offline_win64.zip` | `D5EED23BCB3E3319D2EAAA5AFB91E60523563F38D84FCB5E3C0C9268D45B54EE` |
-| `CyberChef_launcher.exe` | `899574619ED731DC95769B7130E8578324D1035787EFD4C9BFBA6E27AED0483F` |
-| `CyberChef_v11.5.0.html` | `809174936FD5F895E23F45E6D06448B6DC6F8F115CF7ACC969029F3D894903E9` |
-| 官方 v11.5.0 原版 zip | `F6478925D3EAA16EC08626A85F5B85EED10D531A5E18700615FED7ECB024CCCF` |
 
 ## 自己构建
 

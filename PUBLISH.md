@@ -98,9 +98,9 @@ gh release create v11.5.0 "release\CyberChef_v11.5.0_offline_win64.zip" `
 
 - [ ] `git status` 里**没有** `release/`、`bin/`、`*.zip`（`.gitignore` 已排除；若已误 add，用 `git rm --cached release -r`）
 - [ ] 仓库首页 README 里 `../../releases/latest` 链接能点
-- [ ] Release 资产上传成功，下载后 SHA-256 与 README 表格一致
+- [ ] Release 资产上传成功，下载后 SHA-256 与本文件上面的哈希表一致
 - [ ] 找一台**没装 Python / Node** 的电脑（或虚拟机）解压试运行
-- [ ] 杀软 / SmartScreen 首次运行提示已在 README 说明
+- [ ] 首次运行会被 SmartScreen 拦一次（启动器未签名），点「更多信息 → 仍要运行」属预期
 
 ---
 
